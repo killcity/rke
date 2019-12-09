@@ -77,6 +77,8 @@ const (
 	KubeAPIArgAuditPolicyFile             = "audit-policy-file"
 	DefaultKubeAPIArgAuditLogPathValue    = "/var/log/kube-audit/audit-log.json"
 	DefaultKubeAPIArgAuditPolicyFileValue = "/etc/kubernetes/audit-policy.yaml"
+
+	DefaultServiceKubeproxyEnabled = true
 )
 
 type ExternalFlags struct {
@@ -207,6 +209,14 @@ func (c *Cluster) setClusterServicesDefaults() {
 		defaultSnapshot := DefaultEtcdSnapshot
 		c.Services.Etcd.Snapshot = &defaultSnapshot
 	}
+
+	// enable kubeproxy by default
+	if c.Services.Kubeproxy.Enabled == nil {
+		defaultServiceKubeproxyEnabled := DefaultServiceKubeproxyEnabled
+		c.Services.Kubeproxy.Enabled = &defaultServiceKubeproxyEnabled
+	}
+
+	logrus.Infof("kubeproxy.enabled after defaults = '%+v'", *c.Services.Kubeproxy.Enabled)
 
 	serviceConfigDefaultsMap := map[*string]string{
 		&c.Services.KubeAPI.ServiceClusterIPRange:        DefaultServiceClusterIPRange,
