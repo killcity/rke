@@ -216,8 +216,6 @@ func (c *Cluster) setClusterServicesDefaults() {
 		c.Services.Kubeproxy.Enabled = &defaultServiceKubeproxyEnabled
 	}
 
-	logrus.Infof("kubeproxy.enabled after defaults = '%+v'", *c.Services.Kubeproxy.Enabled)
-
 	serviceConfigDefaultsMap := map[*string]string{
 		&c.Services.KubeAPI.ServiceClusterIPRange:        DefaultServiceClusterIPRange,
 		&c.Services.KubeAPI.ServiceNodePortRange:         DefaultNodePortRange,

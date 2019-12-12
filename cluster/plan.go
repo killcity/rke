@@ -96,7 +96,7 @@ func BuildRKEConfigNodePlan(ctx context.Context, myCluster *Cluster, host *hosts
 	if *myCluster.RancherKubernetesEngineConfig.Services.Kubeproxy.Enabled {
 		processes[services.KubeproxyContainerName] = myCluster.BuildKubeProxyProcess(host, prefixPath, svcOptionData)
 	} else {
-		logrus.Warnln("Kubeproxy disabled")
+		logrus.Debugln("Kubeproxy is disabled")
 	}
 
 	portChecks = append(portChecks, BuildPortChecksFromPortList(host, WorkerPortList, ProtocolTCP)...)
