@@ -64,6 +64,8 @@ const (
 	DefaultFlannelBackendVxLanPort = "8472"
 	DefaultFlannelBackendVxLanVNI  = "1"
 
+	DefaultKubeRouterRunServiceProxy = false
+
 	KubeAPIArgAdmissionControlConfigFile             = "admission-control-config-file"
 	DefaultKubeAPIArgAdmissionControlConfigFileValue = "/etc/kubernetes/admission.yaml"
 
@@ -214,6 +216,19 @@ func (c *Cluster) setClusterServicesDefaults() {
 	if c.Services.Kubeproxy.Enabled == nil {
 		defaultServiceKubeproxyEnabled := DefaultServiceKubeproxyEnabled
 		c.Services.Kubeproxy.Enabled = &defaultServiceKubeproxyEnabled
+	}
+
+	// by default, do not run service proxy in kube-router
+	if c.Network.KubeRouterNetworkProvider != nil {
+		if c.Network.KubeRouterNetworkProvider.RunServiceProxy == nil {
+			defaultKubeRouterRunServiceProxy := DefaultKubeRouterRunServiceProxy
+			c.Network.KubeRouterNetworkProvider.RunServiceProxy = &defaultKubeRouterRunServiceProxy
+		}
+		// disable kube-proxy if a CNI runs a service proxy
+		if *c.Network.KubeRouterNetworkProvider.RunServiceProxy {
+			serviceProxyEnabled := false
+			c.Services.Kubeproxy.Enabled = &serviceProxyEnabled
+		}
 	}
 
 	serviceConfigDefaultsMap := map[*string]string{

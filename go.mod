@@ -4,6 +4,7 @@ go 1.12
 
 replace (
 	github.com/go-resty/resty => gopkg.in/resty.v1 v1.9.0
+	github.com/rancher/kontainer-driver-metadata => /home/thklein/go/src/github.com/rancher/kontainer-driver-metadata
 	github.com/rancher/rke => /home/thklein/go/src/github.com/rancher/rke
 	github.com/rancher/types => /home/thklein/go/src/github.com/rancher/types
 	k8s.io/api => k8s.io/api v0.0.0-20190918155943-95b840bb6a1f
