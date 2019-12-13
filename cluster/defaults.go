@@ -65,6 +65,7 @@ const (
 	DefaultFlannelBackendVxLanVNI  = "1"
 
 	DefaultKubeRouterRunServiceProxy = false
+	DefaultKubeRouterRunFirewall     = false
 
 	KubeAPIArgAdmissionControlConfigFile             = "admission-control-config-file"
 	DefaultKubeAPIArgAdmissionControlConfigFileValue = "/etc/kubernetes/admission.yaml"
@@ -498,6 +499,11 @@ func (c *Cluster) setClusterNetworkDefaults() {
 		if *c.Network.KubeRouterNetworkProvider.RunServiceProxy {
 			serviceProxyEnabled := false
 			c.Services.Kubeproxy.Enabled = &serviceProxyEnabled
+		}
+		// by default, do not run firewall
+		if c.Network.KubeRouterNetworkProvider.RunFirewall == nil {
+			defaultKubeRouterRunFirewall := DefaultKubeRouterRunFirewall
+			c.Network.KubeRouterNetworkProvider.RunFirewall = &defaultKubeRouterRunFirewall
 		}
 	}
 	for k, v := range networkPluginConfigDefaultsMap {

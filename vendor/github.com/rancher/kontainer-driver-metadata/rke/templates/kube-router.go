@@ -12,19 +12,27 @@ metadata:
 data:
   cni-conf.json: |
     {
-       "cniVersion":"0.3.0",
-       "name":"mynet",
-       "plugins":[
-          {
-             "name":"kubernetes",
-             "type":"bridge",
-             "bridge":"kube-bridge",
-             "isDefaultGateway":true,
-             "ipam":{
-                "type":"host-local"
-             }
-          }
-       ]
+      "cniVersion":"0.3.0",
+      "name":"mynet",
+      "plugins":[
+        {
+            "name":"kubernetes",
+            "type":"bridge",
+            "bridge":"kube-bridge",
+            "isDefaultGateway":true,
+            "forceAddress": true,
+            "ipam":{
+              "type":"host-local"
+            }
+        },
+        {
+            "type":"portmap",
+            "capabilities":{
+              "snat":true,
+              "portMappings":true
+            }
+        }
+      ]
     }
   kubeconfig: |
     apiVersion: v1
@@ -66,6 +74,8 @@ spec:
         tier: node
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "20243"
     spec:
       priorityClassName: system-node-critical
       serviceAccountName: kube-router
@@ -76,9 +86,11 @@ spec:
         imagePullPolicy: Always
         args:
         - "--run-router=true"
-        - "--run-firewall=true"
+        - "--run-firewall={{.RunFirewall}}"
         - "--run-service-proxy={{.RunServiceProxy}}"
         - "--kubeconfig=/var/lib/kube-router/kubeconfig"
+        - "--bgp-graceful-restart" 
+        - "--metrics-port=20243"
         env:
         - name: NODE_NAME
           valueFrom:
@@ -129,7 +141,9 @@ spec:
             mv -f ${TMP} /var/lib/kube-router/kubeconfig;
           fi;
           mkdir -p /opt/cni/bin;
-          wget https://github.com/containernetworking/plugins/releases/download/v0.8.1/cni-plugins-linux-amd64-v0.8.1.tgz -O /tmp/cni-plugins-linux-amd64-v0.8.1.tgz && tar -xf /tmp/cni-plugins-linux-amd64-v0.8.1.tgz -C /opt/cni/bin/
+          if [ ! "$(ls -A /opt/cni/bin)" ]; then
+            wget https://github.com/containernetworking/plugins/releases/download/v0.8.3/cni-plugins-linux-amd64-v0.8.3.tgz -O /tmp/cni-plugins-linux-amd64-v0.8.3.tgz && tar -xf /tmp/cni-plugins-linux-amd64-v0.8.3.tgz -C /opt/cni/bin/;
+          fi;
         volumeMounts:
         - mountPath: /etc/cni/net.d
           name: cni-conf-dir
@@ -141,6 +155,9 @@ spec:
           mountPath: /var/lib/kube-router
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      dnsConfig:
+        nameservers:
+          - 1.1.1.1
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
@@ -234,19 +251,27 @@ metadata:
 data:
   cni-conf.json: |
     {
-       "cniVersion":"0.3.0",
-       "name":"mynet",
-       "plugins":[
-          {
-             "name":"kubernetes",
-             "type":"bridge",
-             "bridge":"kube-bridge",
-             "isDefaultGateway":true,
-             "ipam":{
-                "type":"host-local"
-             }
-          }
-       ]
+      "cniVersion":"0.3.0",
+      "name":"mynet",
+      "plugins":[
+        {
+            "name":"kubernetes",
+            "type":"bridge",
+            "bridge":"kube-bridge",
+            "isDefaultGateway":true,
+            "forceAddress": true,
+            "ipam":{
+              "type":"host-local"
+            }
+        },
+        {
+            "type":"portmap",
+            "capabilities":{
+              "snat":true,
+              "portMappings":true
+            }
+        }
+      ]
     }
   kubeconfig: |
     apiVersion: v1
@@ -288,6 +313,8 @@ spec:
         tier: node
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "20243"
     spec:
       priorityClassName: system-node-critical
       serviceAccountName: kube-router
@@ -298,9 +325,11 @@ spec:
         imagePullPolicy: Always
         args:
         - "--run-router=true"
-        - "--run-firewall=true"
+        - "--run-firewall={{.RunFirewall}}"
         - "--run-service-proxy={{.RunServiceProxy}}"
         - "--kubeconfig=/var/lib/kube-router/kubeconfig"
+        - "--bgp-graceful-restart" 
+        - "--metrics-port=20243"
         env:
         - name: NODE_NAME
           valueFrom:
@@ -351,7 +380,9 @@ spec:
             mv -f ${TMP} /var/lib/kube-router/kubeconfig;
           fi;
           mkdir -p /opt/cni/bin;
-          wget https://github.com/containernetworking/plugins/releases/download/v0.8.1/cni-plugins-linux-amd64-v0.8.1.tgz -O /tmp/cni-plugins-linux-amd64-v0.8.1.tgz && tar -xf /tmp/cni-plugins-linux-amd64-v0.8.1.tgz -C /opt/cni/bin/
+          if [ ! "$(ls -A /opt/cni/bin)" ]; then
+            wget https://github.com/containernetworking/plugins/releases/download/v0.8.3/cni-plugins-linux-amd64-v0.8.3.tgz -O /tmp/cni-plugins-linux-amd64-v0.8.3.tgz && tar -xf /tmp/cni-plugins-linux-amd64-v0.8.3.tgz -C /opt/cni/bin/;
+          fi;
         volumeMounts:
         - mountPath: /etc/cni/net.d
           name: cni-conf-dir
@@ -363,6 +394,9 @@ spec:
           mountPath: /var/lib/kube-router
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      dnsConfig:
+        nameservers:
+          - 1.1.1.1
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

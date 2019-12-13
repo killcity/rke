@@ -70,6 +70,7 @@ const (
 
 	KubeRouterNetworkPlugin   = "kube-router"
 	KubeRouterRunServiceProxy = "kube_router_run_service_proxy"
+	KubeRouterRunFirewall     = "kube_router_run_firewall"
 
 	// List of map keys to be used with network templates
 
@@ -112,6 +113,7 @@ const (
 	RBACConfig       = "RBACConfig"
 	ClusterVersion   = "ClusterVersion"
 	RunServiceProxy  = "RunServiceProxy" // for CNIs which can replace kube-proxy as the cluster service proxy
+	RunFirewall      = "RunFirewall"
 
 	NodeSelector = "NodeSelector"
 )
@@ -270,6 +272,7 @@ func (c *Cluster) doKubeRouterDeploy(ctx context.Context, data map[string]interf
 		ClusterCIDR:     c.ClusterCIDR,
 		CNIImage:        c.SystemImages.KubeRouterCNI,
 		RunServiceProxy: c.Network.Options[KubeRouterRunServiceProxy],
+		RunFirewall:     c.Network.Options[KubeRouterRunFirewall],
 		APIRoot:         "https://127.0.0.1:6443/",
 		// TODO: @iwilltry42 add more config options
 	}
