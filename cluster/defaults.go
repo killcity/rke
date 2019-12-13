@@ -218,19 +218,6 @@ func (c *Cluster) setClusterServicesDefaults() {
 		c.Services.Kubeproxy.Enabled = &defaultServiceKubeproxyEnabled
 	}
 
-	// by default, do not run service proxy in kube-router
-	if c.Network.KubeRouterNetworkProvider != nil {
-		if c.Network.KubeRouterNetworkProvider.RunServiceProxy == nil {
-			defaultKubeRouterRunServiceProxy := DefaultKubeRouterRunServiceProxy
-			c.Network.KubeRouterNetworkProvider.RunServiceProxy = &defaultKubeRouterRunServiceProxy
-		}
-		// disable kube-proxy if a CNI runs a service proxy
-		if *c.Network.KubeRouterNetworkProvider.RunServiceProxy {
-			serviceProxyEnabled := false
-			c.Services.Kubeproxy.Enabled = &serviceProxyEnabled
-		}
-	}
-
 	serviceConfigDefaultsMap := map[*string]string{
 		&c.Services.KubeAPI.ServiceClusterIPRange:        DefaultServiceClusterIPRange,
 		&c.Services.KubeAPI.ServiceNodePortRange:         DefaultNodePortRange,
@@ -500,6 +487,18 @@ func (c *Cluster) setClusterNetworkDefaults() {
 	}
 	if c.Network.WeaveNetworkProvider != nil {
 		networkPluginConfigDefaultsMap[WeavePassword] = c.Network.WeaveNetworkProvider.Password
+	}
+	if c.Network.KubeRouterNetworkProvider != nil {
+		// by default, do not run service proxy in kube-router
+		if c.Network.KubeRouterNetworkProvider.RunServiceProxy == nil {
+			defaultKubeRouterRunServiceProxy := DefaultKubeRouterRunServiceProxy
+			c.Network.KubeRouterNetworkProvider.RunServiceProxy = &defaultKubeRouterRunServiceProxy
+		}
+		// disable kube-proxy if a kube-router runs a service proxy
+		if *c.Network.KubeRouterNetworkProvider.RunServiceProxy {
+			serviceProxyEnabled := false
+			c.Services.Kubeproxy.Enabled = &serviceProxyEnabled
+		}
 	}
 	for k, v := range networkPluginConfigDefaultsMap {
 		setDefaultIfEmptyMapValue(c.Network.Options, k, v)

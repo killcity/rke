@@ -68,7 +68,8 @@ const (
 	WeaveNetworkPlugin  = "weave"
 	WeaveNetworkAppName = "weave-net"
 
-	KubeRouterNetworkPlugin = "kube-router"
+	KubeRouterNetworkPlugin   = "kube-router"
+	KubeRouterRunServiceProxy = "kube_router_run_service_proxy"
 
 	// List of map keys to be used with network templates
 
@@ -268,8 +269,9 @@ func (c *Cluster) doKubeRouterDeploy(ctx context.Context, data map[string]interf
 	kubeRouterConfig := map[string]interface{}{
 		ClusterCIDR:     c.ClusterCIDR,
 		CNIImage:        c.SystemImages.KubeRouterCNI,
-		RunServiceProxy: true, // TODO: get from options
-		// TODO: add more config options
+		RunServiceProxy: c.Network.Options[KubeRouterRunServiceProxy],
+		APIRoot:         "https://127.0.0.1:6443/",
+		// TODO: @iwilltry42 add more config options
 	}
 	pluginYaml, err := c.getNetworkPluginManifest(kubeRouterConfig, data)
 	if err != nil {
