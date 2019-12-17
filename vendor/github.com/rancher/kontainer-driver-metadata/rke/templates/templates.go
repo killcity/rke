@@ -12,6 +12,7 @@ const (
 	Flannel       = "flannel"
 	Weave         = "weave"
 	KubeRouter    = "kube-router"
+	Cilium        = "cilium"
 	CoreDNS       = "coreDNS"
 	KubeDNS       = "kubeDNS"
 	MetricsServer = "metricsServer"
@@ -33,6 +34,8 @@ const (
 	flannelv116 = "flannel-v1.16"
 
 	kubeRouterv116 = "kube-router-v1.16"
+
+	ciliumv116 = "cilium-v1.16"
 
 	coreDnsv18  = "coredns-v1.8"
 	coreDnsv116 = "coredns-v1.16"
@@ -94,6 +97,9 @@ func LoadK8sVersionedTemplates() map[string]map[string]string {
 		KubeRouter: {
 			">=1.16.0-alpha": kubeRouterv116,
 		},
+		Cilium: {
+			">=1.16.0-alpha": ciliumv116,
+		},
 		TemplateKeys: getTemplates(),
 	}
 }
@@ -126,6 +132,8 @@ func getTemplates() map[string]string {
 		weavev116: WeaveTemplateV116,
 
 		kubeRouterv116: KubeRouterTemplateV116,
+
+		ciliumv116: CiliumTemplate,
 
 		nginxIngressv18:  NginxIngressTemplate,
 		nginxIngressV115: NginxIngressTemplateV0251Rancher1,

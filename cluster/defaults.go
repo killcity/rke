@@ -506,6 +506,9 @@ func (c *Cluster) setClusterNetworkDefaults() {
 			c.Network.KubeRouterNetworkProvider.RunFirewall = &defaultKubeRouterRunFirewall
 		}
 	}
+	if c.Network.CiliumNetworkProvider != nil {
+		// TODO: @iwilltry42 add options
+	}
 	for k, v := range networkPluginConfigDefaultsMap {
 		setDefaultIfEmptyMapValue(c.Network.Options, k, v)
 	}

@@ -68,7 +68,7 @@ func validateAuthOptions(c *Cluster) error {
 }
 
 func validateNetworkOptions(c *Cluster) error {
-	if c.Network.Plugin != NoNetworkPlugin && c.Network.Plugin != FlannelNetworkPlugin && c.Network.Plugin != CalicoNetworkPlugin && c.Network.Plugin != CanalNetworkPlugin && c.Network.Plugin != WeaveNetworkPlugin && c.Network.Plugin != KubeRouterNetworkPlugin {
+	if c.Network.Plugin != NoNetworkPlugin && c.Network.Plugin != FlannelNetworkPlugin && c.Network.Plugin != CalicoNetworkPlugin && c.Network.Plugin != CanalNetworkPlugin && c.Network.Plugin != WeaveNetworkPlugin && c.Network.Plugin != KubeRouterNetworkPlugin && c.Network.Plugin != CiliumNetworkPlugin {
 		return fmt.Errorf("Network plugin [%s] is not supported", c.Network.Plugin)
 	}
 	return nil
@@ -318,6 +318,13 @@ func validateNetworkImages(c *Cluster) error {
 	} else if c.Network.Plugin == KubeRouterNetworkPlugin {
 		if len(c.SystemImages.KubeRouterCNI) == 0 {
 			return fmt.Errorf("kube-router cni image is not populated")
+		}
+	} else if c.Network.Plugin == CiliumNetworkPlugin {
+		if len(c.SystemImages.Cilium) == 0 {
+			return fmt.Errorf("cilium image is not populated")
+		}
+		if len(c.SystemImages.CiliumOperator) == 0 {
+			return fmt.Errorf("cilium operator image is not populated")
 		}
 	}
 	return nil

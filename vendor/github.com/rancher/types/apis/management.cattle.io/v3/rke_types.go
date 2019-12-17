@@ -114,6 +114,8 @@ type RKESystemImages struct {
 	CoreDNS string `yaml:"coredns" json:"coredns,omitempty"`
 	// CoreDNS autoscaler image
 	CoreDNSAutoscaler string `yaml:"coredns_autoscaler" json:"corednsAutoscaler,omitempty"`
+	// Nodelocal image
+	Nodelocal string `yaml:"nodelocal" json:"nodelocal,omitempty"`
 	// Kubernetes image
 	Kubernetes string `yaml:"kubernetes" json:"kubernetes,omitempty"`
 	// Flannel image
@@ -144,6 +146,10 @@ type RKESystemImages struct {
 	WeaveCNI string `yaml:"weave_cni" json:"weaveCni,omitempty"`
 	// Kube Router CNI image
 	KubeRouterCNI string `yaml:"kube_router_cni" json:"kubeRouterCni,omitempty"`
+	// Cilium Image
+	Cilium string `yaml:"cilium" json:"cilium,omitempty"`
+	// Cilium Operator
+	CiliumOperator string `yaml:"cilium_operator" json:"ciliumOperator,omitempty"`
 	// Pod infra container image
 	PodInfraContainer string `yaml:"pod_infra_container" json:"podInfraContainer,omitempty"`
 	// Ingress Controller image
@@ -359,6 +365,8 @@ type NetworkConfig struct {
 	Plugin string `yaml:"plugin" json:"plugin,omitempty" norman:"default=canal"`
 	// Plugin options to configure network properties
 	Options map[string]string `yaml:"options" json:"options,omitempty"`
+	// Set MTU for CNI provider
+	MTU string `yaml:"mtu" json:"mtu,omitempty"`
 	// CalicoNetworkProvider
 	CalicoNetworkProvider *CalicoNetworkProvider `yaml:"calico_network_provider,omitempty" json:"calicoNetworkProvider,omitempty"`
 	// CanalNetworkProvider
@@ -369,6 +377,8 @@ type NetworkConfig struct {
 	WeaveNetworkProvider *WeaveNetworkProvider `yaml:"weave_network_provider,omitempty" json:"weaveNetworkProvider,omitempty"`
 	// KubeRouterNetworkProvider
 	KubeRouterNetworkProvider *KubeRouterNetworkProvider `yaml:"kube_router_provider,omitempty" json:"kubeRouterNetworkProvider,omitempty"`
+	// CiliumNetworkProvider
+	CiliumNetworkProvider *CiliumNetworkProvider `yaml:"cilium_network_provider,omitempty" json:"ciliumNetworkProvider,omitempty"`
 	// NodeSelector key pair
 	NodeSelector map[string]string `yaml:"node_selector" json:"nodeSelector,omitempty"`
 }
@@ -534,6 +544,10 @@ type WeaveNetworkProvider struct {
 type KubeRouterNetworkProvider struct {
 	RunServiceProxy *bool `yaml:"run_service_proxy" json:"runServiceProxy,omitempty"`
 	RunFirewall     *bool `yaml:"run_firewall" json:"runFirewall,omitempty"`
+}
+
+type CiliumNetworkProvider struct {
+	// TODO: @iwilltry42 fill with options
 }
 
 type KubernetesServicesOptions struct {
@@ -828,6 +842,12 @@ type DNSConfig struct {
 	StubDomains map[string][]string `yaml:"stubdomains" json:"stubdomains,omitempty"`
 	// NodeSelector key pair
 	NodeSelector map[string]string `yaml:"node_selector" json:"nodeSelector,omitempty"`
+	// Nodelocal DNS
+	Nodelocal *Nodelocal `yaml:"nodelocal" json:"nodelocal,omitempy"`
+}
+
+type Nodelocal struct {
+	IPAddress string `yaml:"ipaddress" json:"ipAddress,omitempy"`
 }
 
 type RKETaint struct {

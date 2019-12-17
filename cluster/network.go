@@ -72,6 +72,8 @@ const (
 	KubeRouterRunServiceProxy = "kube_router_run_service_proxy"
 	KubeRouterRunFirewall     = "kube_router_run_firewall"
 
+	CiliumNetworkPlugin = "cilium"
+
 	// List of map keys to be used with network templates
 
 	// EtcdEndpoints is the server address for Etcd, used by calico
@@ -99,6 +101,7 @@ const (
 	Image              = "Image"
 	CNIImage           = "CNIImage"
 	NodeImage          = "NodeImage"
+	OperatorImage      = "OperatorImage"
 	ControllersImage   = "ControllersImage"
 	CanalFlannelImg    = "CanalFlannelImg"
 	FlexVolImg         = "FlexVolImg"
@@ -150,6 +153,8 @@ func (c *Cluster) deployNetworkPlugin(ctx context.Context, data map[string]inter
 		return c.doWeaveDeploy(ctx, data)
 	case KubeRouterNetworkPlugin:
 		return c.doKubeRouterDeploy(ctx, data)
+	case CiliumNetworkPlugin:
+		return c.doCiliumDeploy(ctx, data)
 	case NoNetworkPlugin:
 		log.Infof(ctx, "[network] Not deploying a cluster network, expecting custom CNI")
 		return nil
@@ -283,9 +288,22 @@ func (c *Cluster) doKubeRouterDeploy(ctx context.Context, data map[string]interf
 	return c.doAddonDeploy(ctx, pluginYaml, NetworkPluginResourceName, true)
 }
 
+func (c *Cluster) doCiliumDeploy(ctx context.Context, data map[string]interface{}) error {
+
+	ciliumConfig := map[string]interface{}{
+		Image:         c.SystemImages.Cilium,
+		OperatorImage: c.SystemImages.CiliumOperator,
+	}
+	pluginYaml, err := c.getNetworkPluginManifest(ciliumConfig, data)
+	if err != nil {
+		return err
+	}
+	return c.doAddonDeploy(ctx, pluginYaml, NetworkPluginResourceName, true)
+}
+
 func (c *Cluster) getNetworkPluginManifest(pluginConfig, data map[string]interface{}) (string, error) {
 	switch c.Network.Plugin {
-	case CanalNetworkPlugin, FlannelNetworkPlugin, CalicoNetworkPlugin, WeaveNetworkPlugin, KubeRouterNetworkPlugin:
+	case CanalNetworkPlugin, FlannelNetworkPlugin, CalicoNetworkPlugin, WeaveNetworkPlugin, KubeRouterNetworkPlugin, CiliumNetworkPlugin:
 		tmplt, err := templates.GetVersionedTemplates(c.Network.Plugin, data, c.Version)
 		if err != nil {
 			return "", err

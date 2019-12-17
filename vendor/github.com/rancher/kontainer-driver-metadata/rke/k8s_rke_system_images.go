@@ -1776,6 +1776,8 @@ func loadK8sRKESystemImages() map[string]v3.RKESystemImages {
 			WeaveNode:                 m("weaveworks/weave-kube:2.5.2"),
 			WeaveCNI:                  m("weaveworks/weave-npc:2.5.2"),
 			KubeRouterCNI:             m("cloudnativelabs/kube-router:v0.3.2"),
+			Cilium:                    m("cilium/cilium:v1.6.5"),
+			CiliumOperator:            m("cilium/operator:v1.6.5"),
 			PodInfraContainer:         m("gcr.io/google_containers/pause:3.1"),
 			Ingress:                   m("rancher/nginx-ingress-controller:nginx-0.25.1-rancher1"),
 			IngressBackend:            m("k8s.gcr.io/defaultbackend:1.5-rancher1"),
