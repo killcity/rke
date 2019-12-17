@@ -134,7 +134,7 @@ data:
 
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
-  enable-node-port: "{{.ReplaceKubeProxy}}"
+  enable-node-port: "{{.RunServiceProxy}}"
 
 ---
 # Source: cilium/charts/agent/templates/serviceaccount.yaml
@@ -376,7 +376,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
 							optional: true
-{{- if .ReplaceKubeProxy }}
+{{- if .RunServiceProxy }}
 				- name: KUBERNETES_SERVICE_HOST
 					value: {{.APIHost}}
 				- name: KUBERNETES_SERVICE_PORT
@@ -626,7 +626,7 @@ spec:
               key: identity-allocation-mode
               name: cilium-config
 							optional: true
-{{- if .ReplaceKubeProxy }}
+{{- if .RunServiceProxy }}
 				- name: KUBERNETES_SERVICE_HOST
 					value: {{.APIHost}}
 				- name: KUBERNETES_SERVICE_PORT

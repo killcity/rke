@@ -67,6 +67,8 @@ const (
 	DefaultKubeRouterRunServiceProxy = false
 	DefaultKubeRouterRunFirewall     = false
 
+	DefaultCiliumRunServiceProxy = false
+
 	KubeAPIArgAdmissionControlConfigFile             = "admission-control-config-file"
 	DefaultKubeAPIArgAdmissionControlConfigFileValue = "/etc/kubernetes/admission.yaml"
 
@@ -495,7 +497,7 @@ func (c *Cluster) setClusterNetworkDefaults() {
 			defaultKubeRouterRunServiceProxy := DefaultKubeRouterRunServiceProxy
 			c.Network.KubeRouterNetworkProvider.RunServiceProxy = &defaultKubeRouterRunServiceProxy
 		}
-		// disable kube-proxy if a kube-router runs a service proxy
+		// disable kube-proxy if kube-router runs a service proxy
 		if *c.Network.KubeRouterNetworkProvider.RunServiceProxy {
 			serviceProxyEnabled := false
 			c.Services.Kubeproxy.Enabled = &serviceProxyEnabled
@@ -507,7 +509,16 @@ func (c *Cluster) setClusterNetworkDefaults() {
 		}
 	}
 	if c.Network.CiliumNetworkProvider != nil {
-		// TODO: @iwilltry42 add options
+		// by default, we don't replace kube-proxy with cilium services
+		if c.Network.CiliumNetworkProvider.RunServiceProxy == nil {
+			defaultCiliumRunServiceProxy := DefaultCiliumRunServiceProxy
+			c.Network.CiliumNetworkProvider.RunServiceProxy = &defaultCiliumRunServiceProxy
+		}
+		// disable kube-proxy if cilium runs a service proxy
+		if *c.Network.CiliumNetworkProvider.RunServiceProxy {
+			serviceProxyEnabled := false
+			c.Services.Kubeproxy.Enabled = &serviceProxyEnabled
+		}
 	}
 	for k, v := range networkPluginConfigDefaultsMap {
 		setDefaultIfEmptyMapValue(c.Network.Options, k, v)

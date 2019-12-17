@@ -72,7 +72,8 @@ const (
 	KubeRouterRunServiceProxy = "kube_router_run_service_proxy"
 	KubeRouterRunFirewall     = "kube_router_run_firewall"
 
-	CiliumNetworkPlugin = "cilium"
+	CiliumNetworkPlugin   = "cilium"
+	CiliumRunServiceProxy = "cilium_run_service_proxy"
 
 	// List of map keys to be used with network templates
 
@@ -80,6 +81,8 @@ const (
 	EtcdEndpoints = "EtcdEndpoints"
 	// APIRoot is the kubernetes API address
 	APIRoot = "APIRoot"
+	APIHost = "APIHost"
+	APIPort = "APIPort"
 	// kubernetes client certificates and kubeconfig paths
 
 	EtcdClientCert     = "EtcdClientCert"
@@ -291,8 +294,11 @@ func (c *Cluster) doKubeRouterDeploy(ctx context.Context, data map[string]interf
 func (c *Cluster) doCiliumDeploy(ctx context.Context, data map[string]interface{}) error {
 
 	ciliumConfig := map[string]interface{}{
-		Image:         c.SystemImages.Cilium,
-		OperatorImage: c.SystemImages.CiliumOperator,
+		Image:           c.SystemImages.Cilium,
+		OperatorImage:   c.SystemImages.CiliumOperator,
+		APIHost:         "127.0.0.1",
+		APIPort:         "6443",
+		RunServiceProxy: c.Network.Options[CiliumRunServiceProxy],
 	}
 	pluginYaml, err := c.getNetworkPluginManifest(ciliumConfig, data)
 	if err != nil {

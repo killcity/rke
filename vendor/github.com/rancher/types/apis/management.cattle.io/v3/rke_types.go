@@ -547,7 +547,7 @@ type KubeRouterNetworkProvider struct {
 }
 
 type CiliumNetworkProvider struct {
-	ReplaceKubeProxy *bool `yaml:"replace_kubeproxy" json:"replaceKubeproxy,omitempty"`
+	RunServiceProxy *bool `yaml:"run_service_proxy" json:"runServiceProxy,omitempty"`
 	// TODO: @iwilltry42 fill with options
 }
 
