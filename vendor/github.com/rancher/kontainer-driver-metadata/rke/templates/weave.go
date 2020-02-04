@@ -59,7 +59,11 @@ items:
                 - name: WEAVE_PASSWORD
                   value: "{{.WeavePassword}}"
                 {{- end}}
+<<<<<<< HEAD
                 {{- if ne .MTU ""}}
+=======
+                {{- if ne (default 0 .MTU) 0}}
+>>>>>>> 988160874b206f7b8f73c0e7511c79633290d6e4
                 - name: WEAVE_MTU
                   value: "{{.MTU}}"
                 {{- end }}
@@ -312,7 +316,11 @@ items:
                 - name: WEAVE_PASSWORD
                   value: "{{.WeavePassword}}"
                 {{- end}}
+<<<<<<< HEAD
                 {{- if ne .MTU ""}}
+=======
+                {{- if ne (default 0 .MTU) 0}}
+>>>>>>> 988160874b206f7b8f73c0e7511c79633290d6e4
                 - name: WEAVE_MTU
                   value: "{{.MTU}}"
                 {{- end }}
