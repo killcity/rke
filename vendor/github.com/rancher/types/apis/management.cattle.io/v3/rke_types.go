@@ -58,6 +58,21 @@ type RancherKubernetesEngineConfig struct {
 	RotateCertificates *RotateCertificates `yaml:"rotate_certificates,omitempty" json:"rotateCertificates,omitempty"`
 	// DNS Config
 	DNS *DNSConfig `yaml:"dns" json:"dns,omitempty"`
+	// Upgrade Strategy for the cluster
+	UpgradeStrategy *NodeUpgradeStrategy `yaml:"upgrade_strategy,omitempty" json:"upgradeStrategy,omitempty"`
+}
+
+func (r *RancherKubernetesEngineConfig) ObjClusterName() string {
+	return r.ClusterName
+}
+
+type NodeUpgradeStrategy struct {
+	// MaxUnavailableWorker input can be a number of nodes or a percentage of nodes (example, max_unavailable_worker: 2 OR max_unavailable_worker: 20%)
+	MaxUnavailableWorker string `yaml:"max_unavailable_worker" json:"maxUnavailableWorker,omitempty" norman:"min=1,default=10%"`
+	// MaxUnavailableControlplane input can be a number of nodes or a percentage of nodes
+	MaxUnavailableControlplane string          `yaml:"max_unavailable_controlplane" json:"maxUnavailableControlplane,omitempty" norman:"min=1,default=1"`
+	Drain                      bool            `yaml:"drain" json:"drain,omitempty"`
+	DrainInput                 *NodeDrainInput `yaml:"node_drain_input" json:"nodeDrainInput,omitempty"`
 }
 
 type BastionHost struct {
@@ -143,8 +158,6 @@ type RKESystemImages struct {
 	WeaveNode string `yaml:"weave_node" json:"weaveNode,omitempty"`
 	// Weave CNI image
 	WeaveCNI string `yaml:"weave_cni" json:"weaveCni,omitempty"`
-	// Kube Router CNI image
-	KubeRouterCNI string `yaml:"kube_router_cni" json:"kubeRouterCni,omitempty"`
 	// Pod infra container image
 	PodInfraContainer string `yaml:"pod_infra_container" json:"podInfraContainer,omitempty"`
 	// Ingress Controller image
@@ -334,9 +347,6 @@ type KubeletService struct {
 type KubeproxyService struct {
 	// Base service properties
 	BaseService `yaml:",inline" json:",inline"`
-
-	// Enabled
-	Enabled *bool `yaml:"enabled" json:"enabled,omitempty" norman:"default=false"`
 }
 
 type SchedulerService struct {
@@ -370,10 +380,10 @@ type NetworkConfig struct {
 	FlannelNetworkProvider *FlannelNetworkProvider `yaml:"flannel_network_provider,omitempty" json:"flannelNetworkProvider,omitempty"`
 	// WeaveNetworkProvider
 	WeaveNetworkProvider *WeaveNetworkProvider `yaml:"weave_network_provider,omitempty" json:"weaveNetworkProvider,omitempty"`
-	// KubeRouterNetworkProvider
-	KubeRouterNetworkProvider *KubeRouterNetworkProvider `yaml:"kube_router_provider,omitempty" json:"kubeRouterNetworkProvider,omitempty"`
 	// NodeSelector key pair
 	NodeSelector map[string]string `yaml:"node_selector" json:"nodeSelector,omitempty"`
+	// Network plugin daemonset upgrade strategy
+	UpdateStrategy *DaemonSetUpdateStrategy `yaml:"update_strategy" json:"updateStrategy,omitempty"`
 }
 
 type AuthWebhookConfig struct {
@@ -416,6 +426,8 @@ type IngressConfig struct {
 	ExtraVolumes []ExtraVolume `yaml:"extra_volumes" json:"extraVolumes,omitempty" norman:"type=array[json]"`
 	// Extra volume mounts
 	ExtraVolumeMounts []ExtraVolumeMount `yaml:"extra_volume_mounts" json:"extraVolumeMounts,omitempty" norman:"type=array[json]"`
+	// nginx daemonset upgrade strategy
+	UpdateStrategy *DaemonSetUpdateStrategy `yaml:"update_strategy" json:"updateStrategy,omitempty"`
 }
 
 type ExtraEnv struct {
@@ -532,11 +544,6 @@ type CanalNetworkProvider struct {
 
 type WeaveNetworkProvider struct {
 	Password string `yaml:"password,omitempty" json:"password,omitempty" norman:"type=password"`
-}
-
-type KubeRouterNetworkProvider struct {
-	RunServiceProxy *bool `yaml:"run_service_proxy" json:"runServiceProxy,omitempty"`
-	RunFirewall     *bool `yaml:"run_firewall" json:"runFirewall,omitempty"`
 }
 
 type KubernetesServicesOptions struct {
@@ -807,6 +814,10 @@ type MonitoringConfig struct {
 	Options map[string]string `yaml:"options" json:"options,omitempty"`
 	// NodeSelector key pair
 	NodeSelector map[string]string `yaml:"node_selector" json:"nodeSelector,omitempty"`
+	// Update strategy
+	UpdateStrategy *DeploymentStrategy `yaml:"update_strategy" json:"updateStrategy,omitempty"`
+	// Number of monitoring addon pods
+	Replicas *int32 `yaml:"replicas" json:"replicas,omitempty" norman:"default=1"`
 }
 
 type RestoreConfig struct {
@@ -833,10 +844,28 @@ type DNSConfig struct {
 	NodeSelector map[string]string `yaml:"node_selector" json:"nodeSelector,omitempty"`
 	// Nodelocal DNS
 	Nodelocal *Nodelocal `yaml:"nodelocal" json:"nodelocal,omitempy"`
+	// Update strategy
+	UpdateStrategy *DeploymentStrategy `yaml:"update_strategy" json:"updateStrategy,omitempty"`
+	// Autoscaler fields to determine number of dns replicas
+	LinearAutoscalerParams *LinearAutoscalerParams `yaml:"linear_autoscaler_params" json:"linearAutoscalerParams,omitempty"`
 }
 
 type Nodelocal struct {
-	IPAddress string `yaml:"ipaddress" json:"ipAddress,omitempy"`
+	// link-local IP for nodelocal DNS
+	IPAddress string `yaml:"ip_address" json:"ipAddress,omitempy"`
+	// Nodelocal DNS daemonset upgrade strategy
+	UpdateStrategy *DaemonSetUpdateStrategy `yaml:"update_strategy" json:"updateStrategy,omitempty"`
+	// NodeSelector key pair
+	NodeSelector map[string]string `yaml:"node_selector" json:"nodeSelector,omitempty"`
+}
+
+// LinearAutoscalerParams contains fields expected by the cluster-proportional-autoscaler https://github.com/kubernetes-incubator/cluster-proportional-autoscaler/blob/0c61e63fc81449abdd52315aa27179a17e5d1580/pkg/autoscaler/controller/linearcontroller/linear_controller.go#L50
+type LinearAutoscalerParams struct {
+	CoresPerReplica           float64 `yaml:"cores_per_replica" json:"coresPerReplica,omitempty" norman:"default=128"`
+	NodesPerReplica           float64 `yaml:"nodes_per_replica" json:"nodesPerReplica,omitempty" norman:"default=4"`
+	Min                       int     `yaml:"min" json:"min,omitempty" norman:"default=1"`
+	Max                       int     `yaml:"max" json:"max,omitempty"`
+	PreventSinglePointFailure bool    `yaml:"prevent_single_point_failure" json:"preventSinglePointFailure,omitempty" norman:"default=true"`
 }
 
 type RKETaint struct {
