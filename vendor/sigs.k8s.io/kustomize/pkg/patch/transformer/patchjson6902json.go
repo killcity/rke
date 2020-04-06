@@ -19,7 +19,7 @@ package transformer
 import (
 	"fmt"
 
-	"github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/kustomize/pkg/resid"

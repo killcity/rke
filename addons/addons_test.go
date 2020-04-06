@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/api/batch/v1"
+	v1 "k8s.io/api/batch/v1"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 )
 

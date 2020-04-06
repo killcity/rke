@@ -18,6 +18,7 @@ package transformer
 
 import (
 	"fmt"
+
 	"sigs.k8s.io/kustomize/pkg/ifc"
 	"sigs.k8s.io/kustomize/pkg/resid"
 

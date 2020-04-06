@@ -2,11 +2,12 @@ package pki
 
 import (
 	"context"
+	"reflect"
+	"testing"
+
 	"github.com/rancher/rke/hosts"
 	v3 "github.com/rancher/types/apis/management.cattle.io/v3"
 	"github.com/stretchr/testify/assert"
-	"reflect"
-	"testing"
 )
 
 func TestDeleteUnusedCerts(t *testing.T) {
