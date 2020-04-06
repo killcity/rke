@@ -11,7 +11,7 @@ OS_ARCH_ARG_DARWIN="amd64"
 
 mkdir -p bin
 [ "$(uname)" != "Darwin" ] && LINKFLAGS="-extldflags -static -s"
-CGO_ENABLED=0 go build -ldflags "-X main.VERSION=$VERSION $LINKFLAGS" -o bin/rke
+CGO_ENABLED=0 go build -mod vendor -ldflags "-X main.VERSION=$VERSION $LINKFLAGS" -o bin/rke
 
 if [ -n "$CROSS" ]; then
     rm -rf build/bin
