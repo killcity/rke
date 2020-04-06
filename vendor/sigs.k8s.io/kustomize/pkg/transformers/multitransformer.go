@@ -18,7 +18,6 @@ package transformers
 
 import (
 	"fmt"
-
 	"sigs.k8s.io/kustomize/pkg/resource"
 
 	"sigs.k8s.io/kustomize/pkg/resmap"

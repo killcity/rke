@@ -15,11 +15,10 @@
 package client
 
 import (
+	"github.com/json-iterator/go"
+	"github.com/modern-go/reflect2"
 	"strconv"
 	"unsafe"
-
-	jsoniter "github.com/json-iterator/go"
-	"github.com/modern-go/reflect2"
 )
 
 type customNumberExtension struct {
