@@ -3,7 +3,7 @@ package cluster
 import (
 	"github.com/rancher/rke/metadata"
 	"github.com/rancher/rke/services"
-	v3 "github.com/rancher/types/apis/management.cattle.io/v3"
+	v3 "github.com/rancher/rke/types"
 )
 
 func GetLocalRKEConfig() *v3.RancherKubernetesEngineConfig {
