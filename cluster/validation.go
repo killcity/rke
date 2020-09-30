@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rancher/rke/metadata"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/rancher/rke/log"
@@ -14,7 +13,6 @@ import (
 	"github.com/rancher/rke/pki"
 	"github.com/rancher/rke/services"
 	"github.com/rancher/rke/util"
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
