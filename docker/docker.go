@@ -21,7 +21,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/rancher/rke/log"
 	"github.com/rancher/rke/metadata"
-	v3 "github.com/rancher/types/apis/management.cattle.io/v3"
+	v3 "github.com/rancher/rke/types"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -133,6 +133,23 @@ func DoRunOnetimeContainer(ctx context.Context, dClient *client.Client, imageCfg
 		return nil
 	}
 	return err
+}
+
+func DoCopyToContainer(ctx context.Context, dClient *client.Client, plane, containerName, hostname, destinationDir string, tarFile io.Reader) error {
+	if dClient == nil {
+		return fmt.Errorf("[%s] Failed to run container: docker client is nil for container [%s] on host [%s]", plane, containerName, hostname)
+	}
+	// Need container.ID for CopyToContainer function
+	container, err := InspectContainer(ctx, dClient, hostname, containerName)
+	if err != nil {
+		return fmt.Errorf("Could not inspect container [%s] on host [%s]: %s", containerName, hostname, err)
+	}
+
+	err = dClient.CopyToContainer(ctx, container.ID, destinationDir, tarFile, types.CopyToContainerOptions{})
+	if err != nil {
+		return fmt.Errorf("Error while copying file to container [%s] on host [%s]: %v", containerName, hostname, err)
+	}
+	return nil
 }
 
 func DoRollingUpdateContainer(ctx context.Context, dClient *client.Client, imageCfg *container.Config, hostCfg *container.HostConfig, containerName, hostname, plane string, prsMap map[string]v3.PrivateRegistry) error {
@@ -262,7 +279,7 @@ func pullImage(ctx context.Context, dClient *client.Client, hostname string, con
 			continue
 		}
 		defer out.Close()
-		if logrus.GetLevel() == logrus.DebugLevel {
+		if logrus.GetLevel() == logrus.TraceLevel {
 			io.Copy(os.Stdout, out)
 		} else {
 			io.Copy(ioutil.Discard, out)
@@ -359,7 +376,7 @@ func StopContainer(ctx context.Context, dClient *client.Client, hostname string,
 	// Retry up to RetryCount times to see if image exists
 	for i := 1; i <= RetryCount; i++ {
 		logrus.Infof("Stopping container [%s] on host [%s] with stopTimeoutDuration [%s], try #%d", containerName, hostname, stopTimeoutDuration, i)
-		err := dClient.ContainerStop(ctx, containerName, &stopTimeoutDuration)
+		err = dClient.ContainerStop(ctx, containerName, &stopTimeoutDuration)
 		if err != nil {
 			logrus.Warningf("Can't stop Docker container [%s] for host [%s]: %v", containerName, hostname, err)
 			continue
@@ -412,10 +429,11 @@ func CreateContainer(ctx context.Context, dClient *client.Client, hostname strin
 	if dClient == nil {
 		return container.ContainerCreateCreatedBody{}, fmt.Errorf("Failed to create container: docker client is nil for container [%s] on host [%s]", containerName, hostname)
 	}
+	var created container.ContainerCreateCreatedBody
 	var err error
 	// Retry up to RetryCount times to see if image exists
 	for i := 1; i <= RetryCount; i++ {
-		created, err := dClient.ContainerCreate(ctx, imageCfg, hostCfg, nil, containerName)
+		created, err = dClient.ContainerCreate(ctx, imageCfg, hostCfg, nil, containerName)
 		if err != nil {
 			logrus.Warningf("Failed to create Docker container [%s] on host [%s]: %v", containerName, hostname, err)
 			continue
@@ -429,10 +447,11 @@ func InspectContainer(ctx context.Context, dClient *client.Client, hostname stri
 	if dClient == nil {
 		return types.ContainerJSON{}, fmt.Errorf("Failed to inspect container: docker client is nil for container [%s] on host [%s]", containerName, hostname)
 	}
+	var inspection types.ContainerJSON
 	var err error
 	// Retry up to RetryCount times to see if image exists
 	for i := 1; i <= RetryCount; i++ {
-		inspection, err := dClient.ContainerInspect(ctx, containerName)
+		inspection, err = dClient.ContainerInspect(ctx, containerName)
 		if err != nil {
 			if client.IsErrNotFound(err) {
 				return types.ContainerJSON{}, err
@@ -481,14 +500,24 @@ func WaitForContainer(ctx context.Context, dClient *client.Client, hostname stri
 			return 1, fmt.Errorf("Could not inspect container [%s] on host [%s]: %s", containerName, hostname, err)
 		}
 		if container.State.Running {
-			log.Infof(ctx, "Container [%s] is still running on host [%s]", containerName, hostname)
+			stderr, stdout, err := GetContainerLogsStdoutStderr(ctx, dClient, containerName, "1", false)
+			if err != nil {
+				logrus.Warnf("Failed to get container logs from container [%s] on host [%s]: %v", containerName, hostname, err)
+			}
+
+			log.Infof(ctx, "Container [%s] is still running on host [%s]: stderr: [%s], stdout: [%s]", containerName, hostname, stderr, stdout)
 			time.Sleep(1 * time.Second)
 			continue
 		}
 		logrus.Debugf("Exit code for [%s] container on host [%s] is [%d]", containerName, hostname, int64(container.State.ExitCode))
 		return int64(container.State.ExitCode), nil
 	}
-	return 1, fmt.Errorf("Container [%s] did not exit in time on host [%s]", containerName, hostname)
+	stderr, stdout, err := GetContainerLogsStdoutStderr(ctx, dClient, containerName, "1", false)
+	if err != nil {
+		logrus.Warnf("Failed to get container logs from container [%s] on host [%s]", containerName, hostname)
+	}
+
+	return 1, fmt.Errorf("Container [%s] did not exit in time on host [%s]: stderr: [%s], stdout: [%s]", containerName, hostname, stderr, stdout)
 }
 
 func IsContainerUpgradable(ctx context.Context, dClient *client.Client, imageCfg *container.Config, hostCfg *container.HostConfig, containerName string, hostname string, plane string) (bool, error) {
@@ -591,9 +620,10 @@ func ReadContainerLogs(ctx context.Context, dClient *client.Client, containerNam
 	if dClient == nil {
 		return nil, fmt.Errorf("Failed reading container logs: docker client is nil for container [%s]", containerName)
 	}
+	var logs io.ReadCloser
 	var err error
 	for i := 1; i <= RetryCount; i++ {
-		logs, err := dClient.ContainerLogs(ctx, containerName, types.ContainerLogsOptions{Follow: follow, ShowStdout: true, ShowStderr: true, Timestamps: false, Tail: tail})
+		logs, err = dClient.ContainerLogs(ctx, containerName, types.ContainerLogsOptions{Follow: follow, ShowStdout: true, ShowStderr: true, Timestamps: false, Tail: tail})
 		if err != nil {
 			logrus.Warnf("Can't read container logs for container [%s]: %v", containerName, err)
 			continue
@@ -702,7 +732,7 @@ func GetKubeletDockerConfig(prsMap map[string]v3.PrivateRegistry) (string, error
 	auths := map[string]authConfig{}
 
 	for url, pr := range prsMap {
-		auth := base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", pr.User, pr.Password)))
+		auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", pr.User, pr.Password)))
 		auths[url] = authConfig{Auth: auth}
 	}
 	cfg, err := json.Marshal(dockerConfig{auths})

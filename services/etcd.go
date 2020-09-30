@@ -16,8 +16,8 @@ import (
 	"github.com/rancher/rke/log"
 	"github.com/rancher/rke/pki"
 	"github.com/rancher/rke/pki/cert"
+	v3 "github.com/rancher/rke/types"
 	"github.com/rancher/rke/util"
-	v3 "github.com/rancher/types/apis/management.cattle.io/v3"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -66,6 +66,9 @@ func RunEtcdPlane(
 				return err
 			}
 			if err := pki.SaveBackupBundleOnHost(ctx, host, rkeToolsImage, EtcdSnapshotPath, prsMap); err != nil {
+				return err
+			}
+			if err := createLogLink(ctx, host, EtcdSnapshotContainerName, ETCDRole, alpineImage, prsMap); err != nil {
 				return err
 			}
 		} else {
@@ -377,8 +380,48 @@ func RunEtcdSnapshotSave(ctx context.Context, etcdHost *hosts.Host, prsMap map[s
 	return nil
 }
 
+func RunGetStateFileFromSnapshot(ctx context.Context, etcdHost *hosts.Host, prsMap map[string]v3.PrivateRegistry, etcdSnapshotImage string, name string, es v3.ETCDService) (string, error) {
+	backupCmd := "etcd-backup"
+	imageCfg := &container.Config{
+		Cmd: []string{
+			"/opt/rke-tools/rke-etcd-backup",
+			backupCmd,
+			"extractstatefile",
+			"--name", name,
+		},
+		Image: etcdSnapshotImage,
+		Env:   es.ExtraEnv,
+	}
+	// Configure imageCfg for S3 backups
+	if es.BackupConfig != nil {
+		imageCfg = configS3BackupImgCmd(ctx, imageCfg, es.BackupConfig)
+	}
+	hostCfg := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/backup:z", EtcdSnapshotPath),
+		},
+		NetworkMode:   container.NetworkMode("host"),
+		RestartPolicy: container.RestartPolicy{Name: "no"},
+	}
+
+	if err := docker.DoRemoveContainer(ctx, etcdHost.DClient, EtcdStateFileContainerName, etcdHost.Address); err != nil {
+		return "", err
+	}
+	if err := docker.DoRunOnetimeContainer(ctx, etcdHost.DClient, imageCfg, hostCfg, EtcdStateFileContainerName, etcdHost.Address, ETCDRole, prsMap); err != nil {
+		return "", err
+	}
+	statefile, err := docker.ReadFileFromContainer(ctx, etcdHost.DClient, etcdHost.Address, EtcdStateFileContainerName, "/tmp/cluster.rkestate")
+	if err != nil {
+		return "", err
+	}
+	if err := docker.DoRemoveContainer(ctx, etcdHost.DClient, EtcdStateFileContainerName, etcdHost.Address); err != nil {
+		return "", err
+	}
+
+	return statefile, nil
+}
+
 func DownloadEtcdSnapshotFromS3(ctx context.Context, etcdHost *hosts.Host, prsMap map[string]v3.PrivateRegistry, etcdSnapshotImage string, name string, es v3.ETCDService) error {
-	log.Infof(ctx, "[etcd] Get snapshot [%s] on host [%s]", name, etcdHost.Address)
 	s3Backend := es.BackupConfig.S3BackupConfig
 	if len(s3Backend.Endpoint) == 0 || len(s3Backend.BucketName) == 0 {
 		return fmt.Errorf("failed to get snapshot [%s] from s3 on host [%s], invalid s3 configurations", name, etcdHost.Address)
@@ -399,13 +442,21 @@ func DownloadEtcdSnapshotFromS3(ctx context.Context, etcdHost *hosts.Host, prsMa
 		Image: etcdSnapshotImage,
 		Env:   es.ExtraEnv,
 	}
+	s3Logline := fmt.Sprintf("[etcd] Snapshot [%s] will be downloaded on host [%s] from S3 compatible backend at [%s] from bucket [%s] using accesskey [%s]", name, etcdHost.Address, s3Backend.Endpoint, s3Backend.BucketName, s3Backend.AccessKey)
+	if s3Backend.Region != "" {
+		s3Logline += fmt.Sprintf(" and using region [%s]", s3Backend.Region)
+	}
+
 	if s3Backend.CustomCA != "" {
 		caStr := base64.StdEncoding.EncodeToString([]byte(s3Backend.CustomCA))
 		imageCfg.Cmd = append(imageCfg.Cmd, "--s3-endpoint-ca="+caStr)
+		s3Logline += fmt.Sprintf(" and using endpoint CA [%s]", caStr)
 	}
 	if s3Backend.Folder != "" {
 		imageCfg.Cmd = append(imageCfg.Cmd, "--s3-folder="+s3Backend.Folder)
+		s3Logline += fmt.Sprintf(" and using folder [%s]", s3Backend.Folder)
 	}
+	log.Infof(ctx, s3Logline)
 	hostCfg := &container.HostConfig{
 		Binds: []string{
 			fmt.Sprintf("%s:/backup:z", EtcdSnapshotPath),
@@ -610,7 +661,10 @@ func configS3BackupImgCmd(ctx context.Context, imageCfg *container.Config, bc *v
 			"--s3-bucketName=" + bc.S3BackupConfig.BucketName,
 			"--s3-region=" + bc.S3BackupConfig.Region,
 		}...)
-		s3Logline := fmt.Sprintf("[etcd] Snapshot will be uploaded to S3 compatible backend at [%s] in region [%s] to bucket [%s] using accesskey [%s]", bc.S3BackupConfig.Endpoint, bc.S3BackupConfig.Region, bc.S3BackupConfig.BucketName, bc.S3BackupConfig.AccessKey)
+		s3Logline := fmt.Sprintf("[etcd] Snapshots configured to S3 compatible backend at [%s] to bucket [%s] using accesskey [%s]", bc.S3BackupConfig.Endpoint, bc.S3BackupConfig.BucketName, bc.S3BackupConfig.AccessKey)
+		if bc.S3BackupConfig.Region != "" {
+			s3Logline += fmt.Sprintf(" and using region [%s]", bc.S3BackupConfig.Region)
+		}
 		if bc.S3BackupConfig.CustomCA != "" {
 			caStr := base64.StdEncoding.EncodeToString([]byte(bc.S3BackupConfig.CustomCA))
 			cmd = append(cmd, "--s3-endpoint-ca="+caStr)

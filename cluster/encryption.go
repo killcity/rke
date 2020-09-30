@@ -17,8 +17,8 @@ import (
 	"github.com/rancher/rke/log"
 	"github.com/rancher/rke/services"
 	"github.com/rancher/rke/templates"
+	v3 "github.com/rancher/rke/types"
 	"github.com/rancher/rke/util"
-	v3 "github.com/rancher/types/apis/management.cattle.io/v3"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -380,9 +380,6 @@ func resolveCustomEncryptionConfig(clusterFile string) (string, *apiserverconfig
 	err = ghodssyaml.Unmarshal([]byte(clusterFile), &r)
 	if err != nil {
 		return clusterFile, nil, fmt.Errorf("error unmarshalling: %v", err)
-	}
-	if err != nil {
-		return "", nil, fmt.Errorf("error unmarshalling encryption custom config: %v", err)
 	}
 	services, ok := r["services"].(map[string]interface{})
 	if services == nil || !ok {

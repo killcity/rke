@@ -4,16 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
-
-	"github.com/rancher/rke/metadata"
-
-	"net"
 
 	"github.com/docker/docker/client"
 	"github.com/rancher/rke/docker"
 	"github.com/rancher/rke/log"
+	"github.com/rancher/rke/metadata"
 	"github.com/rancher/rke/util"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
@@ -44,7 +42,7 @@ func (h *Host) TunnelUp(ctx context.Context, dialerFactory DialerFactory, cluste
 	if err := checkDockerVersion(ctx, h, clusterVersion); err != nil {
 		return err
 	}
-	h.PrefixPath = GetPrefixPath(h.DockerInfo.OperatingSystem, clusterPrefixPath)
+	h.SetPrefixPath(clusterPrefixPath)
 	return nil
 }
 
@@ -67,7 +65,7 @@ func checkDockerVersion(ctx context.Context, h *Host, clusterVersion string) err
 	if err != nil {
 		return fmt.Errorf("Can't retrieve Docker Info: %v", err)
 	}
-	logrus.Debugf("Docker Info found: %#v", info)
+	logrus.Debugf("Docker Info found for host [%s]: %#v", h.Address, info)
 	h.DockerInfo = info
 	if h.IgnoreDockerVersion {
 		return nil
@@ -83,7 +81,7 @@ func checkDockerVersion(ctx context.Context, h *Host, clusterVersion string) err
 	}
 
 	if !isvalid {
-		return fmt.Errorf("Unsupported Docker version found [%s], supported versions are %v", info.ServerVersion, metadata.K8sVersionToDockerVersions[K8sVersion])
+		return fmt.Errorf("Unsupported Docker version found [%s] on host [%s], supported versions are %v", info.ServerVersion, h.Address, metadata.K8sVersionToDockerVersions[K8sVersion])
 	}
 	return nil
 }

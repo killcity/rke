@@ -3,7 +3,6 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"github.com/sirupsen/logrus"
 
@@ -14,10 +13,6 @@ import (
 	"github.com/rancher/rke/services"
 	"github.com/rancher/rke/util"
 	"golang.org/x/sync/errgroup"
-)
-
-const (
-	BackupPrepareError = "failed to prepare backup: restoring S3 backups with no cluster level S3 configuration is not supported"
 )
 
 func (c *Cluster) SnapshotEtcd(ctx context.Context, snapshotName string) error {
@@ -41,7 +36,40 @@ func (c *Cluster) DeployRestoreCerts(ctx context.Context, clusterCerts map[strin
 		errgrp.Go(func() error {
 			var errList []error
 			for host := range hostsQueue {
-				err := pki.DeployCertificatesOnPlaneHost(ctx, host.(*hosts.Host), c.RancherKubernetesEngineConfig, restoreCerts, c.SystemImages.CertDownloader, c.PrivateRegistriesMap, false)
+				h := host.(*hosts.Host)
+				var env []string
+				if h.IsWindows() {
+					env = c.getWindowsEnv(h)
+				}
+				if err := pki.DeployCertificatesOnPlaneHost(
+					ctx,
+					h,
+					c.RancherKubernetesEngineConfig,
+					restoreCerts,
+					c.SystemImages.CertDownloader,
+					c.PrivateRegistriesMap,
+					false,
+					env); err != nil {
+					errList = append(errList, err)
+				}
+			}
+			return util.ErrList(errList)
+		})
+	}
+	if err := errgrp.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Cluster) DeployStateFile(ctx context.Context, stateFilePath, snapshotName string) error {
+	var errgrp errgroup.Group
+	hostsQueue := util.GetObjectQueue(c.EtcdHosts)
+	for w := 0; w < WorkerThreads; w++ {
+		errgrp.Go(func() error {
+			var errList []error
+			for host := range hostsQueue {
+				err := pki.DeployStateOnPlaneHost(ctx, host.(*hosts.Host), c.SystemImages.CertDownloader, c.PrivateRegistriesMap, stateFilePath, snapshotName)
 				if err != nil {
 					errList = append(errList, err)
 				}
@@ -55,6 +83,19 @@ func (c *Cluster) DeployRestoreCerts(ctx context.Context, clusterCerts map[strin
 	return nil
 }
 
+func (c *Cluster) GetStateFileFromSnapshot(ctx context.Context, snapshotName string) (string, error) {
+	backupImage := c.getBackupImage()
+	for _, host := range c.EtcdHosts {
+		stateFile, err := services.RunGetStateFileFromSnapshot(ctx, host, c.PrivateRegistriesMap, backupImage, snapshotName, c.Services.Etcd)
+		if err != nil || stateFile == "" {
+			logrus.Infof("Could not extract state file from snapshot [%s] on host [%s]", snapshotName, host.Address)
+			continue
+		}
+		return stateFile, nil
+	}
+	return "", fmt.Errorf("Unable to find statefile in snapshot [%s]", snapshotName)
+}
+
 func (c *Cluster) PrepareBackup(ctx context.Context, snapshotPath string) error {
 	// local backup case
 	var backupReady bool
@@ -62,7 +103,13 @@ func (c *Cluster) PrepareBackup(ctx context.Context, snapshotPath string) error 
 	backupImage := c.getBackupImage()
 	var errors []error
 	if c.Services.Etcd.BackupConfig == nil || // legacy rke local backup
-		(c.Services.Etcd.BackupConfig != nil && IsLocalSnapshot(snapshotPath)) { // rancher local backup and snapshot name indicates a local snapshot
+		(c.Services.Etcd.BackupConfig != nil && c.Services.Etcd.BackupConfig.S3BackupConfig == nil) { // rancher local backup
+		if c.Services.Etcd.BackupConfig == nil {
+			log.Infof(ctx, "[etcd] No etcd snapshot configuration found, will use local as source")
+		}
+		if c.Services.Etcd.BackupConfig != nil && c.Services.Etcd.BackupConfig.S3BackupConfig == nil {
+			log.Infof(ctx, "[etcd] etcd snapshot configuration found and no s3 backup configuration found, will use local as source")
+		}
 		// stop etcd on all etcd nodes, we need this because we start the backup server on the same port
 		for _, host := range c.EtcdHosts {
 			if err := docker.StopContainer(ctx, host.DClient, host.Address, services.EtcdContainerName); err != nil {
@@ -104,7 +151,8 @@ func (c *Cluster) PrepareBackup(ctx context.Context, snapshotPath string) error 
 
 	// s3 backup case
 	if c.Services.Etcd.BackupConfig != nil &&
-		c.Services.Etcd.BackupConfig.S3BackupConfig != nil && !IsLocalSnapshot(snapshotPath) {
+		c.Services.Etcd.BackupConfig.S3BackupConfig != nil {
+		log.Infof(ctx, "[etcd] etcd s3 backup configuration found, will use s3 as source")
 		for _, host := range c.EtcdHosts {
 			if err := services.DownloadEtcdSnapshotFromS3(ctx, host, c.PrivateRegistriesMap, backupImage, snapshotPath, c.Services.Etcd); err != nil {
 				return err
@@ -113,11 +161,6 @@ func (c *Cluster) PrepareBackup(ctx context.Context, snapshotPath string) error 
 		backupReady = true
 	}
 	if !backupReady {
-		if !IsLocalSnapshot(snapshotPath) &&
-			c.Services.Etcd.BackupConfig != nil &&
-			c.Services.Etcd.BackupConfig.S3BackupConfig == nil { // s3 backup with no s3 configuration!
-			return fmt.Errorf(BackupPrepareError)
-		}
 		return fmt.Errorf("failed to prepare backup for restore")
 	}
 	// this applies to all cases!
@@ -179,16 +222,6 @@ func (c *Cluster) getBackupImage() string {
 		logrus.Errorf("[etcd] error getting backup image %v", err)
 		return ""
 	}
+	logrus.Debugf("[etcd] Image used for etcd snapshot is: [%s]", rkeToolsImage)
 	return rkeToolsImage
-}
-
-func IsLocalSnapshot(name string) bool {
-	// name is fmt.Sprintf("%s-%s%s-", cluster.Name, typeFlag, providerFlag)
-	// typeFlag = "r": recurring
-	// typeFlag = "m": manaul
-	//
-	// providerFlag = "l" local
-	// providerFlag = "s" s3
-	re := regexp.MustCompile("^c-[a-z0-9].*?-.l-")
-	return re.MatchString(name)
 }

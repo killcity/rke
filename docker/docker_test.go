@@ -3,7 +3,7 @@ package docker
 import (
 	"testing"
 
-	v3 "github.com/rancher/types/apis/management.cattle.io/v3"
+	v3 "github.com/rancher/rke/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,4 +44,16 @@ func TestPrivateRegistry(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, a, a2)
 
+}
+
+func TestGetKubeletDockerConfig(t *testing.T) {
+	e := "{\"auths\":{\"https://registry.example.com\":{\"auth\":\"dXNlcjE6cGFzc3d+cmQ=\"}}}"
+	c, err := GetKubeletDockerConfig(map[string]v3.PrivateRegistry{
+		"https://registry.example.com": v3.PrivateRegistry{
+			User:     "user1",
+			Password: "passw~rd",
+		},
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, c, e)
 }
