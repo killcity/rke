@@ -1,7 +1,7 @@
 ---
 pipeline:
   build:
-    privileged: true
+    privileged: false
     image: rancher/dapper:1.11.2
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
@@ -9,7 +9,7 @@ pipeline:
     - dapper ci
 
   build-all-binaries:
-    privileged: true
+    privileged: false
     image: rancher/dapper:1.11.2
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
